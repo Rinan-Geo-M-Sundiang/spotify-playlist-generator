@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
+    <data-source source="LOCAL" name="database" uuid="905fb14f-99f4-41c0-885f-a616c4744547">
+      <driver-ref>sqlite.xerial</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
+      <jdbc-url>jdbc:sqlite:C:\Users\weng\PycharmProjects\spotify-playlist-generator\instance\database.db</jdbc-url>
+    </data-source>
+    <data-source source="LOCAL" name="your_database" uuid="8969c73c-7769-4c25-a1f0-909394906113">
+      <driver-ref>sqlite.xerial</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
+      <jdbc-url>jdbc:sqlite:C:\Users\weng\PycharmProjects\spotify-playlist-generator\instance\your_database.db</jdbc-url>
+    </data-source>
+  </component>
+</project>

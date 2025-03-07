@@ -24,7 +24,7 @@ class Playlist(db.Model):
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
+    spotify_id = db.Column(db.String(100), nullable=True)  # ✅ Store Spotify Playlist ID
     # ✅ One-to-Many Relationship (Playlist → Tracks)
     tracks = db.relationship('Track', backref='playlist', lazy=True, cascade="all, delete-orphan")
 
