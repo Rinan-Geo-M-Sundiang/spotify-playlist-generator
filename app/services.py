@@ -3,7 +3,7 @@ from flask import jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import Playlist, Track
-from app.serializers import playlists_schema, playlist_schema, track_schema, tracks_schema
+from app.serializers import playlists_schema, track_schema
 from app.spotify_services import sp  # ✅ Ensure `sp` is using SpotifyOAuth authentication
 
 @jwt_required()
@@ -158,4 +158,4 @@ def get_tracks_from_playlist(playlist_id):
     if not tracks:
         return jsonify({"message": "No tracks found in this playlist"}), 200
 
-    return jsonify(tracks_schema.dump(tracks)), 200
+    return jsonify(track_schema.dump(tracks)), 200

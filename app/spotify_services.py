@@ -4,7 +4,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from flask import jsonify, request
 from dotenv import load_dotenv
 from spotipy.oauth2 import SpotifyOAuth
-import datetime
+import time  # Add this import at the top of the file
 
 # ✅ Load environment variables
 load_dotenv()
@@ -32,29 +32,37 @@ PLAYLIST_ID = "2PvZKuj3e0FPqDHNUCZCSv"  # Replace with your desired album
 
 
 def fetch_genres():
-    """Fetch available genres from Spotify with proper token handling"""
+    """Fetch available genres with proper endpoint and token validation"""
     try:
-        # ✅ Get FRESH token with forced refresh check
-        token_info = sp_oauth.get_access_token(as_dict=False)
-        if not token_info:
-            return jsonify({"error": "Login required at /spotify/login"}), 401
 
-        # ✅ DEBUG: Print token status
-        print(f"🔥 Using token: {token_info[:15]}... (expires in {sp_oauth._get_expires_at() - time.time()}s)")
+        # 1. Get fresh token with correct scopes
+        token_info = sp_oauth.get_access_token(as_dict=True)
+        if not token_info or 'access_token' not in token_info:
+            return jsonify({"error": "Reauthenticate at /spotify/login", "code": "AUTH_REQUIRED"}), 401
 
-        # ✅ Create NEW client with fresh token
-        authorized_sp = spotipy.Spotify(auth=token_info)
+        # Validate granted scopes
+        if 'user-top-read' not in sp_oauth.scope.split():
+            return jsonify({"error": "Reauthenticate - missing 'user-top-read' scope"}), 403
+
+        # 2. Create authorized client
+        authorized_sp = spotipy.Spotify(auth=token_info['access_token'])
+
+        # 3. Use OFFICIAL API method
         genres = authorized_sp.recommendation_genre_seeds()
 
-        return jsonify({"genres": genres["genres"]}), 200
+        print(f"🛠️ Granted Scopes: {sp_oauth.scope}")
 
+        return jsonify({
+            "genres": genres["genres"],
+            "token_scope": sp_oauth.scope.split()
+        }), 200
     except spotipy.SpotifyException as e:
+        print(f"🔴 Spotify Error: {e.msg}")
         return jsonify({
             "error": "Spotify API Error",
-            "solution": "Reauthenticate at /spotify/login",
-            "details": str(e)
+            "solution": "1. Reauthenticate 2. Verify scopes in Spotify Dashboard",
+            "http_status": e.http_status
         }), e.http_status
-
 def search_track_by_artist(artist_name):
     """Search for a track by artist name."""
     try:
