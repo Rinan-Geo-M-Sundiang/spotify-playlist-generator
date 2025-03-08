@@ -5,9 +5,11 @@ from app.services import (
     get_playlists,
     add_track_to_playlist,
     remove_track_from_playlist,
-    get_tracks_from_playlist
+    get_tracks_from_playlist, update_playlist_details,
+    handle_song_feedback,
+    handle_favorite_operation,
 )
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.spotify_services import (
     fetch_genres, search_track_by_artist, get_track_info,
     get_album_info, fetch_trending_tracks, fetch_featured_playlists
@@ -61,12 +63,14 @@ def add_track(playlist_id):
         return jsonify({"error": "Failed to add track", "details": str(e)}), 500
 
 
-@api_bp.route("/playlist/<int:playlist_id>/remove-track/<int:track_id>", methods=["DELETE"])
-def remove_track(playlist_id, track_id):
+@api_bp.route("/music/remove", methods=["DELETE"])
+@jwt_required()
+def remove_track():
     try:
-        return remove_track_from_playlist(playlist_id, track_id)
+        data = request.get_json()
+        return remove_track_from_playlist(data)
     except Exception as e:
-        return jsonify({"error": "Failed to remove track", "details": str(e)}), 500
+        return jsonify({"error": "Removal failed", "details": str(e)}), 500
 
 
 @api_bp.route("/playlist/<int:playlist_id>/tracks", methods=["GET"])
@@ -149,3 +153,44 @@ def featured_playlists():
     except Exception as e:
         print(f"❌ Route Error: {str(e)}")
         return jsonify({"error": "Failed to fetch featured playlists", "details": str(e)}), 500
+
+
+# Add to routes.py
+@api_bp.route("/feedback", methods=["POST"])
+@jwt_required()
+def submit_feedback():
+    try:
+        data = request.get_json()
+        return handle_song_feedback(data)
+    except Exception as e:
+        return jsonify({"error": "Feedback failed", "details": str(e)}), 500
+
+@api_bp.route("/music/favorite", methods=["POST", "DELETE"])
+@jwt_required()
+def manage_favorite():
+    try:
+        data = request.get_json()
+        return handle_favorite_operation(data)
+    except Exception as e:
+        return jsonify({"error": "Favorite operation failed", "details": str(e)}), 500
+
+
+
+
+@api_bp.route("/music/rate", methods=["POST"])
+@jwt_required()
+def rate_track():
+    try:
+        data = request.get_json()
+        return handle_song_feedback(data)
+    except Exception as e:
+        return jsonify({"error": "Rating failed", "details": str(e)}), 500
+
+@api_bp.route("/playlist/update/<int:playlist_id>", methods=["PUT"])
+@jwt_required()
+def update_playlist(playlist_id):
+    try:
+        data = request.get_json()
+        return update_playlist_details(playlist_id, data)
+    except Exception as e:
+        return jsonify({"error": "Update failed", "details": str(e)}), 500

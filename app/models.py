@@ -41,3 +41,24 @@ class Track(db.Model):
         db.ForeignKey('playlist.id', ondelete="CASCADE", name="fk_track_playlist"),  # ✅ Added constraint name
         nullable=False
     )
+    spotify_track_id = db.Column(db.String(200), nullable=False)  # Add this new field
+    # Add unique constraint
+    __table_args__ = (
+        db.UniqueConstraint('playlist_id', 'name', name='unique_track_per_playlist'),
+    )
+# Add to models.py
+class Favorite(db.Model):
+    __tablename__ = "favorite"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), nullable=False)
+    spotify_id = db.Column(db.String(200), nullable=False)
+    type = db.Column(db.String(50), nullable=False)  # 'track' or 'album'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class UserRating(db.Model):
+    __tablename__ = "user_rating"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), nullable=False)
+    spotify_track_id = db.Column(db.String(200), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

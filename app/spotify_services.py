@@ -1,29 +1,21 @@
-import os
+
 import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
+
 from flask import jsonify, request
-from dotenv import load_dotenv
-from spotipy.oauth2 import SpotifyOAuth
-import time  # Add this import at the top of the file
 
+from app.extensions import sp, sp_oauth  # Changed import source
 # ✅ Load environment variables
-load_dotenv()
-# ✅ Initialize Spotify OAuth (Ensures Token Refresh & Correct Scope)
-sp_oauth = SpotifyOAuth(
-    client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-    redirect_uri="http://localhost:5000/callback",  # ✅ Matches your redirect route
-    scope="user-read-private playlist-read-private playlist-modify-public playlist-modify-private user-top-read"
-)
+from app.services import create_playlist
 
-# ✅ Create Spotipy Client Using OAuth
-sp = spotipy.Spotify(auth_manager=sp_oauth)
+
 
 # ✅ Debugging: Verify OAuth Initialization
 if not sp_oauth:
     print("❌ ERROR: Spotify OAuth is NOT initialized correctly.")
 else:
     print("✅ Spotify OAuth initialized successfully.")
+
+
 
 
 # ✅ Set Album ID for Trending Tracks
@@ -191,3 +183,5 @@ def fetch_featured_playlists(limit=10, offset=0, country="US"):
     except Exception as e:
         print(f"❌ Unexpected Error: {str(e)}")  # Debugging
         return jsonify({"error": "Unexpected error occurred", "details": str(e)}), 500
+
+

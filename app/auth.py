@@ -5,8 +5,8 @@ from flask_jwt_extended import create_access_token
 from app import db
 from app.models import User
 from app.serializers import user_schema
-from app.spotify_services import sp_oauth, sp
-
+from app.extensions import sp, sp_oauth  # Changed import source
+from werkzeug.security import generate_password_hash, check_password_hash
 def register_user():
     """Register a new user and return a JWT token."""
     try:
@@ -97,20 +97,26 @@ def initiate_spotify_login(user_id):
         return {"error": "Spotify login failed", "details": str(e)}, 500
 
 
-# ✅ Handle Spotify OAuth Callback
 def handle_spotify_callback(auth_code):
     """Process Spotify authentication callback, link account to user, and return JWT."""
     try:
         if not auth_code:
             return {"error": "Missing authorization code"}, 400
 
-        # ✅ Get Spotify Token
-        token_info = sp_oauth.get_access_token(auth_code)
-        if not token_info:
-            return {"error": "Failed to get Spotify token"}, 400
+        # ✅ FIX 1: Get token as dictionary with ALL required parameters
+        token_info = sp_oauth.get_access_token(
+            code=auth_code,
+            as_dict=True,
+            check_cache=False
+        )
 
-        session["spotify_token_info"] = token_info  # Store token
-        sp.set_auth(token_info["access_token"])  # Set access token
+        # ✅ FIX 2: Validate token structure
+        if not isinstance(token_info, dict) or "access_token" not in token_info:
+            print(f"❌ Invalid token format: {type(token_info)} - {token_info}")
+            return {"error": "Invalid Spotify token format"}, 500
+
+        session["spotify_token_info"] = token_info
+        sp.set_auth(token_info["access_token"])
 
         # ✅ Fetch Spotify User Profile
         spotify_user = sp.current_user()
@@ -119,37 +125,41 @@ def handle_spotify_callback(auth_code):
 
         print(f"🎵 Spotify User Logged In: {spotify_username} ({email})")
 
-        # ✅ Check if the user already exists
+        # ✅ User handling with bcrypt
         pending_user_id = session.pop("pending_user_id", None)
+        password_hash = bcrypt.hashpw(spotify_username.encode(), bcrypt.gensalt()).decode("utf-8")
+
+        user = None
         if pending_user_id:
-            # ✅ Link Spotify Account to Existing User
             user = User.query.get(pending_user_id)
-            if not user:
-                print("❌ User not found, creating new account...")
-                user = User(username=spotify_username, password_hash=bcrypt.hashpw(spotify_username.encode(), bcrypt.gensalt()).decode("utf-8"))
-                db.session.add(user)
-                db.session.commit()
-        else:
-            # ✅ Create New User if Not Found
+
+        if not user:
             user = User.query.filter_by(username=spotify_username).first()
-            if not user:
-                user = User(username=spotify_username, password_hash=bcrypt.hashpw(spotify_username.encode(), bcrypt.gensalt()).decode("utf-8"))
-                db.session.add(user)
-                db.session.commit()
 
-        # ✅ Generate JWT Token
-        jwt_token = create_access_token(identity=str(user.id))
+        if not user:
+            user = User(
+                username=spotify_username,
+                password_hash=password_hash
+            )
+            db.session.add(user)
+            db.session.commit()
 
-        response = {
-            "message": "Spotify login successful",
-            "access_token": jwt_token,
-            "user": user_schema.dump(user),
-            "spotify_profile": spotify_user
-        }
+        # ✅ Generate JWT
+        jwt_token = create_access_token(identity={
+            "id": user.id,
+            "spotify_linked": True
+        })
 
-        print("✅ Spotify Login Complete:", response)
-        return response, 200
+        return {
+                   "message": "Spotify login successful",
+                   "access_token": jwt_token,
+                   "user": user_schema.dump(user),
+                   "spotify_profile": {
+                       "id": spotify_username,
+                       "email": email
+                   }
+               }, 200
 
     except Exception as e:
-        print(f"❌ Error in Spotify callback: {str(e)}")
+        print(f"❌ Spotify Callback Error: {str(e)}")
         return {"error": "Spotify authentication failed", "details": str(e)}, 500
