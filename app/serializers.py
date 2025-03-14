@@ -1,5 +1,5 @@
 from marshmallow import Schema, fields
-from app.models import Playlist, Track, User
+
 
 class UserSchema(Schema):
     id = fields.Int(dump_only=True)
@@ -14,12 +14,27 @@ class PlaylistSchema(Schema):
     spotify_id = fields.Str()  # ✅ Include Spotify ID
     tracks = fields.Nested("TrackSchema", many=True)
 
+
+
 class TrackSchema(Schema):
     id = fields.Int(dump_only=True)
     name = fields.Str(required=True)
     artist = fields.Str(required=True)
     album = fields.Str()
     playlist_id = fields.Int(required=True)
+
+# Add to serializers.py
+class TrackCommentSchema(Schema):
+    id = fields.Int(dump_only=True)
+    user_id = fields.Int(required=True)
+    track_id = fields.Int(required=True)
+    comment = fields.Str(required=True)
+    created_at = fields.DateTime(dump_only=True)
+    user = fields.Nested(UserSchema(only=("id", "username")))
+    track = fields.Nested(TrackSchema(only=("id", "name", "artist")))
+
+track_comment_schema = TrackCommentSchema()
+track_comments_schema = TrackCommentSchema(many=True)
 
 # ✅ Initialize Serializers
 user_schema = UserSchema()

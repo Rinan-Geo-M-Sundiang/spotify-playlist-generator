@@ -14,7 +14,9 @@ class User(db.Model):
 
 class Playlist(db.Model):
     __tablename__ = "playlist"
-
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'name', name='unique_playlist_per_user'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(
         db.Integer,
@@ -31,7 +33,9 @@ class Playlist(db.Model):
 
 class Track(db.Model):
     __tablename__ = "track"
-
+    __table_args__ = (
+        db.UniqueConstraint('playlist_id', 'name', name='unique_track_per_playlist'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     artist = db.Column(db.String(200), nullable=False)
@@ -62,3 +66,20 @@ class UserRating(db.Model):
     spotify_track_id = db.Column(db.String(200), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# Add to models.py
+class TrackComment(db.Model):
+    __tablename__ = "track_comment"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), nullable=False)
+    track_id = db.Column(db.Integer, db.ForeignKey('track.id', ondelete="CASCADE"), nullable=False)
+    comment = db.Column(db.String(500), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref='comments')
+    track = db.relationship('Track', backref='comments')
+
+
+
+
+

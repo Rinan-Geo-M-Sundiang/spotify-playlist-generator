@@ -6,7 +6,7 @@ from app import db
 from app.models import User
 from app.serializers import user_schema
 from app.extensions import sp, sp_oauth  # Changed import source
-from werkzeug.security import generate_password_hash, check_password_hash
+
 def register_user():
     """Register a new user and return a JWT token."""
     try:

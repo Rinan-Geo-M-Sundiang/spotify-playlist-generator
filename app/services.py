@@ -1,11 +1,17 @@
-import spotipy
+
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from app.models import Playlist, Track, Favorite, UserRating
-from app.serializers import playlists_schema, track_schema, playlist_schema
-from app.extensions import sp  # Changed import source
+from app.models import Playlist, Track, Favorite, UserRating, TrackComment, User
+from app.serializers import playlists_schema, track_schema, playlist_schema, track_comment_schema, track_comments_schema
+from app.extensions import sp, sp_oauth  # Changed import source
+from datetime import datetime
 
+import logging
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+from spotipy.exceptions import SpotifyException
 @jwt_required()
 def create_playlist(data):
     """Create a playlist both locally and on Spotify."""
@@ -395,3 +401,134 @@ def update_playlist_details(playlist_id, data):
 
     db.session.commit()
     return jsonify({"message": "Playlist updated", "playlist": playlist_schema.dump(playlist)}), 200
+
+
+# services.py - Add these new functions
+
+def add_comment_to_track(user_id, playlist_name, track_name, comment):
+    """Add a comment to a track using natural identifiers"""
+    try:
+        # Get playlist with ownership check
+        playlist = Playlist.query.filter_by(
+            user_id=user_id,
+            name=playlist_name
+        ).first()
+
+        if not playlist:
+            return {"error": "Playlist not found"}, 404
+
+        # Find track with case-insensitive search
+        track = Track.query.filter(
+            Track.playlist_id == playlist.id,
+            Track.name.ilike(track_name)
+        ).first()
+
+        if not track:
+            return {"error": "Track not found in playlist"}, 404
+
+        # Create and save comment
+        new_comment = TrackComment(
+            user_id=user_id,
+            track_id=track.id,
+            comment=comment
+        )
+        db.session.add(new_comment)
+        db.session.commit()
+
+        return {"message": "Comment added", "comment": track_comment_schema.dump(new_comment)}, 201
+
+    except Exception as e:
+        db.session.rollback()
+        return {"error": "Failed to add comment", "details": str(e)}, 500
+
+def get_track_comments(user_id, playlist_name, track_name):
+    """Retrieve comments for a specific track"""
+    try:
+        # Verify playlist ownership
+        playlist = Playlist.query.filter_by(
+            user_id=user_id,
+            name=playlist_name
+        ).first()
+
+        if not playlist:
+            return {"error": "Playlist not found"}, 404
+
+        # Find track with case-insensitive search
+        track = Track.query.filter(
+            Track.playlist_id == playlist.id,
+            Track.name.ilike(track_name)
+        ).first()
+
+        if not track:
+            return {"error": "Track not found in playlist"}, 404
+
+        # Get all comments for this track
+        comments = TrackComment.query.filter_by(track_id=track.id).all()
+        return {"comments": track_comments_schema.dump(comments)}, 200
+
+    except Exception as e:
+        return {"error": "Failed to retrieve comments", "details": str(e)}, 500
+
+
+def generate_share_link(user_id, playlist_name):
+    """Generate Spotify share link for a playlist"""
+    try:
+        # Get playlist with ownership check
+        playlist = Playlist.query.filter_by(
+            user_id=user_id,
+            name=playlist_name
+        ).first()
+
+        if not playlist:
+            return {"error": "Playlist not found"}, 404
+
+        if not playlist.spotify_id:
+            return {"error": "Playlist not synced with Spotify"}, 400
+
+        return {
+                   "share_url": f"https://open.spotify.com/playlist/{playlist.spotify_id}",
+                   "playlist_name": playlist.name,
+                   "owner": playlist.user.username
+               }, 200
+
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+
+
+
+
+
+
+
+# ------ Time Capsule Playlists ------
+def generate_time_capsule_playlist():
+    try:
+        time_ranges = ['short_term', 'medium_term', 'long_term']
+        all_tracks = []
+
+        for tr in time_ranges:
+            top_tracks = sp.current_user_top_tracks(
+                limit=20,
+                time_range=tr
+            )
+            all_tracks.extend([item['uri'] for item in top_tracks['items']])
+
+        # Create playlist
+        playlist = sp.user_playlist_create(
+            user=sp.me()['id'],
+            name=f"Time Capsule {datetime.now().year}",
+            public=False
+        )
+
+        # Add unique tracks
+        sp.playlist_add_items(playlist['id'], list(set(all_tracks)))
+
+        return jsonify({
+            "playlist_url": playlist['external_urls']['spotify']
+        }), 201
+    except SpotifyException as e:
+        return {"error": str(e)}, 500
+
+

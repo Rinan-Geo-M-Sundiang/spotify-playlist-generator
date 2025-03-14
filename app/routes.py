@@ -7,7 +7,9 @@ from app.services import (
     remove_track_from_playlist,
     get_tracks_from_playlist, update_playlist_details,
     handle_song_feedback,
-    handle_favorite_operation,
+    handle_favorite_operation, add_comment_to_track,
+    get_track_comments, generate_share_link,
+    generate_time_capsule_playlist
 )
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.spotify_services import (
@@ -155,15 +157,6 @@ def featured_playlists():
         return jsonify({"error": "Failed to fetch featured playlists", "details": str(e)}), 500
 
 
-# Add to routes.py
-@api_bp.route("/feedback", methods=["POST"])
-@jwt_required()
-def submit_feedback():
-    try:
-        data = request.get_json()
-        return handle_song_feedback(data)
-    except Exception as e:
-        return jsonify({"error": "Feedback failed", "details": str(e)}), 500
 
 @api_bp.route("/music/favorite", methods=["POST", "DELETE"])
 @jwt_required()
@@ -173,8 +166,6 @@ def manage_favorite():
         return handle_favorite_operation(data)
     except Exception as e:
         return jsonify({"error": "Favorite operation failed", "details": str(e)}), 500
-
-
 
 
 @api_bp.route("/music/rate", methods=["POST"])
@@ -194,3 +185,55 @@ def update_playlist(playlist_id):
         return update_playlist_details(playlist_id, data)
     except Exception as e:
         return jsonify({"error": "Update failed", "details": str(e)}), 500
+
+
+# routes.py - Update the feedback route
+
+@api_bp.route("/music/feedback", methods=["POST", "GET"])
+@jwt_required()
+def handle_feedback():
+    user_id = get_jwt_identity()
+
+    if request.method == "POST":
+        data = request.get_json()
+        required_fields = ["playlist_name", "track_name", "comment"]
+
+        if not all(field in data for field in required_fields):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        result, status = add_comment_to_track(
+            user_id=user_id,
+            playlist_name=data["playlist_name"],
+            track_name=data["track_name"],
+            comment=data["comment"]
+        )
+        return jsonify(result), status
+
+    else:  # GET method
+        playlist_name = request.args.get("playlist_name")
+        track_name = request.args.get("track_name")
+
+        if not playlist_name or not track_name:
+            return jsonify({"error": "Missing playlist or track name"}), 400
+
+        result, status = get_track_comments(
+            user_id=user_id,
+            playlist_name=playlist_name,
+            track_name=track_name
+        )
+        return jsonify(result), status
+
+@api_bp.route("/music/share/<playlist_name>", methods=["GET"])
+@jwt_required()
+def share_playlist(playlist_name):
+    user_id = get_jwt_identity()
+    result, status = generate_share_link(user_id, playlist_name)
+    return jsonify(result), status
+
+
+
+@api_bp.route("/playlist/time-capsule", methods=["POST"])
+@jwt_required()
+def create_time_capsule():
+    return generate_time_capsule_playlist()
+

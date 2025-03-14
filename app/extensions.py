@@ -9,7 +9,9 @@ sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIFY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
     redirect_uri="http://localhost:5000/callback",  # ✅ Matches your redirect route
-    scope="user-read-private playlist-modify-public playlist-modify-private user-library-read user-library-modify"
+    scope="playlist-read-collaborative user-read-private playlist-modify-public playlist-modify-private "
+          "user-library-read user-library-modify playlist-read-private ",
+    cache_path=".spotifycache"  # Added cache path for token persistence
 )
 
 # ✅ Create Spotipy Client Using OAuth
