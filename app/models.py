@@ -67,17 +67,25 @@ class UserRating(db.Model):
     rating = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-# Add to models.py
 class TrackComment(db.Model):
     __tablename__ = "track_comment"
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), nullable=False)
-    track_id = db.Column(db.Integer, db.ForeignKey('track.id', ondelete="CASCADE"), nullable=False)
-    comment = db.Column(db.String(500), nullable=False)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id', ondelete="CASCADE"),
+        nullable=False
+    )
+    track_id = db.Column(
+        db.Integer,
+        db.ForeignKey('track.id', ondelete="CASCADE", name="fk_comment_track"),  # Added constraint name
+        nullable=False
+    )
+    comment = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship('User', backref='comments')
-    track = db.relationship('Track', backref='comments')
+    # Add explicit relationship with cascade configuration
+    user = db.relationship('User', backref=db.backref('comments', cascade='all, delete-orphan'))
+    track = db.relationship('Track', backref=db.backref('comments', cascade='all, delete-orphan'))
 
 
 

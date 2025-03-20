@@ -20,7 +20,7 @@ class TrackSchema(Schema):
     id = fields.Int(dump_only=True)
     name = fields.Str(required=True)
     artist = fields.Str(required=True)
-    album = fields.Str()
+
     playlist_id = fields.Int(required=True)
 
 # Add to serializers.py

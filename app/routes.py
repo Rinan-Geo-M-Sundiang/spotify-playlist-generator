@@ -1,20 +1,10 @@
 from flask import Blueprint, request, jsonify, redirect
 from app.auth import register_user, login_user, initiate_spotify_login, handle_spotify_callback
-from app.services import (
-    create_playlist,
-    get_playlists,
-    add_track_to_playlist,
-    remove_track_from_playlist,
-    get_tracks_from_playlist, update_playlist_details,
-    handle_song_feedback,
-    handle_favorite_operation, add_comment_to_track,
-    get_track_comments, generate_share_link,
-    generate_time_capsule_playlist
-)
+from app.services import *
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.spotify_services import (
-    fetch_genres, search_track_by_artist, get_track_info,
-    get_album_info, fetch_trending_tracks, fetch_featured_playlists
+    search_track_by_artist, get_track_info,
+    get_album_info, fetch_trending_tracks, advanced_track_search
 )
 # Create API Blueprint
 api_bp = Blueprint("api", __name__)
@@ -76,16 +66,14 @@ def remove_track():
 
 
 @api_bp.route("/playlist/<int:playlist_id>/tracks", methods=["GET"])
+@jwt_required()
 def get_tracks(playlist_id):
     try:
         return get_tracks_from_playlist(playlist_id)
     except Exception as e:
         return jsonify({"error": "Failed to retrieve tracks", "details": str(e)}), 500
 
-# ✅ Fetch Available Genres
-@api_bp.route("/spotify/genres", methods=["GET"])
-def get_genres():
-    return fetch_genres()
+
 
 # ✅ Search Track by Artist
 @api_bp.route("/spotify/search/<artist_name>", methods=["GET"])
@@ -142,19 +130,6 @@ def spotify_callback():
         return jsonify({"error": "Spotify authentication failed", "details": str(e)}), 500
 
 
-# ✅ Fetch Featured Playlists Endpoint
-@api_bp.route("/spotify/featured-playlists", methods=["GET"])
-def featured_playlists():
-    try:
-        limit = request.args.get("limit", default=10, type=int)
-        offset = request.args.get("offset", default=0, type=int)
-        country = request.args.get("country", default="US", type=str)  # Default: US
-
-        return fetch_featured_playlists(limit=limit, offset=offset, country=country)
-
-    except Exception as e:
-        print(f"❌ Route Error: {str(e)}")
-        return jsonify({"error": "Failed to fetch featured playlists", "details": str(e)}), 500
 
 
 
@@ -237,3 +212,50 @@ def share_playlist(playlist_name):
 def create_time_capsule():
     return generate_time_capsule_playlist()
 
+
+
+
+
+@api_bp.route("/playlist/time-machine", methods=["POST"])
+@jwt_required()
+def create_time_machine():
+    try:
+        data = request.get_json()
+        year = int(data.get('year'))
+        return generate_cultural_time_machine(year)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@api_bp.route("/playlist/from-text", methods=["POST"])
+@jwt_required()
+def create_text_playlist():
+    try:
+        data = request.get_json()
+        return generate_text_based_playlist(data)
+    except Exception as e:
+        return jsonify({"error": "Failed to create text-based playlist", "details": str(e)}), 500
+
+@api_bp.route("/playlist/merge", methods=["POST"])
+@jwt_required()
+def merge_playlists_route():
+    try:
+        data = request.get_json()
+        return merge_playlists(data)
+    except Exception as e:
+        return jsonify({"error": "Failed to merge playlists", "details": str(e)}), 500
+
+# Add to routes.py
+@api_bp.route("/spotify/advanced-search", methods=["GET"])
+def advanced_search():
+    params = {
+        'year': request.args.get('year'),
+        'genre': request.args.get('genre'),
+        'artist': request.args.get('artist'),
+        'limit': request.args.get('limit', '10')
+    }
+    return advanced_track_search(params)
+
+@api_bp.route('/user/comments', methods=['GET'])
+@jwt_required()
+def get_user_comments_route():
+    return get_user_comments()

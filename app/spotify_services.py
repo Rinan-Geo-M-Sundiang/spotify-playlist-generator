@@ -1,11 +1,11 @@
-
+from datetime import datetime
 import spotipy
 
 from flask import jsonify, request
 
 from app.extensions import sp, sp_oauth  # Changed import source
 # ✅ Load environment variables
-from app.services import create_playlist
+
 
 
 
@@ -23,38 +23,7 @@ PLAYLIST_ID = "2PvZKuj3e0FPqDHNUCZCSv"  # Replace with your desired album
 # print(sp.playlist(PLAYLIST_ID))  # Check if this returns valid data
 
 
-def fetch_genres():
-    """Fetch available genres with proper endpoint and token validation"""
-    try:
 
-        # 1. Get fresh token with correct scopes
-        token_info = sp_oauth.get_access_token(as_dict=True)
-        if not token_info or 'access_token' not in token_info:
-            return jsonify({"error": "Reauthenticate at /spotify/login", "code": "AUTH_REQUIRED"}), 401
-
-        # Validate granted scopes
-        if 'user-top-read' not in sp_oauth.scope.split():
-            return jsonify({"error": "Reauthenticate - missing 'user-top-read' scope"}), 403
-
-        # 2. Create authorized client
-        authorized_sp = spotipy.Spotify(auth=token_info['access_token'])
-
-        # 3. Use OFFICIAL API method
-        genres = authorized_sp.recommendation_genre_seeds()
-
-        print(f"🛠️ Granted Scopes: {sp_oauth.scope}")
-
-        return jsonify({
-            "genres": genres["genres"],
-            "token_scope": sp_oauth.scope.split()
-        }), 200
-    except spotipy.SpotifyException as e:
-        print(f"🔴 Spotify Error: {e.msg}")
-        return jsonify({
-            "error": "Spotify API Error",
-            "solution": "1. Reauthenticate 2. Verify scopes in Spotify Dashboard",
-            "http_status": e.http_status
-        }), e.http_status
 def search_track_by_artist(artist_name):
     """Search for a track by artist name."""
     try:
@@ -136,52 +105,62 @@ def fetch_trending_tracks():
         return jsonify({"error": "Unexpected error occurred", "details": str(e)}), 500
 
 
-# ✅ Fetch Featured Playlists
-def fetch_featured_playlists(limit=10, offset=0, country="US"):
-    """Fetch Spotify's featured playlists."""
+
+def advanced_track_search(params):
+    """Advanced track search with multiple filters"""
     try:
-        print(f"🔍 Fetching Featured Playlists for Country: {country}...")
+        # Parameter extraction
+        year = params.get('year')
+        genre = params.get('genre')
+        artist = params.get('artist')
+        limit = params.get('limit', 10)
+        errors = []
 
-        # ✅ Ensure Access Token is Valid (Auto-refresh if needed)
-        token_info = sp_oauth.get_cached_token()
-        if not token_info:
-            print("❌ No valid access token. User must reauthenticate.")
-            return jsonify({"error": "Authentication required"}), 401
+        # Validation
+        if year:
+            try:
+                year = int(year)
+                if year < 1900 or year > datetime.now().year:
+                    errors.append(f"Year must be between 1900-{datetime.now().year}")
+            except ValueError:
+                errors.append("Invalid year format")
 
-        print("✅ Token is valid. Proceeding with API request.")
+        try:
+            limit = int(limit)
+            if not (1 <= limit <= 50):
+                errors.append("Limit must be 1-50")
+        except ValueError:
+            errors.append("Invalid limit value")
 
-        # ✅ Correct API Call (Avoid `_get()` Deprecated Calls)
-        response = sp.featured_playlists(
-            limit=limit,
-            offset=offset,
-            country=country
-        )
+        if errors:
+            return jsonify({"errors": errors}), 400
 
-        # ✅ Debugging: Print Raw API Response
-        print("📥 Raw API Response:", response)
+        # Build query
+        query_parts = []
+        if year: query_parts.append(f"year:{year}")
+        if genre: query_parts.append(f"genre:{genre}")
+        if artist: query_parts.append(f"artist:{artist}")
 
-        # ✅ Extract Playlist Details
-        playlists = response.get("playlists", {}).get("items", [])
+        if not query_parts:
+            return jsonify({"error": "At least one filter required"}), 400
 
-        featured_playlists = [
-            {
-                "name": playlist["name"],
-                "description": playlist["description"],
-                "url": playlist["external_urls"]["spotify"],
-                "image": playlist["images"][0]["url"] if playlist["images"] else None
-            }
-            for playlist in playlists
-        ]
+        # Spotify API call
+        results = sp.search(q=' '.join(query_parts), type='track', limit=limit)
+        tracks = [{
+            'name': track['name'],
+            'artists': [a['name'] for a in track['artists']],
+            'album': track['album']['name'],
+            'release_date': track['album']['release_date'],
+            'id': track['id'],
+            'uri': track['uri'],
+            'preview_url': track.get('preview_url'),
+            'popularity': track['popularity']
+        } for track in results['tracks']['items']]
 
-        print("✅ Successfully fetched featured playlists!")  # Debugging
-        return jsonify({"featured_playlists": featured_playlists}), 200
-
-    except spotipy.exceptions.SpotifyException as e:
-        print(f"❌ Spotify API Error: {str(e)}")  # Debugging
-        return jsonify({"error": "Failed to fetch featured playlists", "details": str(e)}), e.http_status
+        return jsonify({
+            'tracks': tracks,
+            'total': results['tracks']['total']
+        }), 200
 
     except Exception as e:
-        print(f"❌ Unexpected Error: {str(e)}")  # Debugging
-        return jsonify({"error": "Unexpected error occurred", "details": str(e)}), 500
-
-
+        return jsonify({"error": "Search failed", "details": str(e)}), 500

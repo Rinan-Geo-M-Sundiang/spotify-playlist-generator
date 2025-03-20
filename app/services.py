@@ -1,11 +1,17 @@
 
 from flask import jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from app import db
-from app.models import Playlist, Track, Favorite, UserRating, TrackComment, User
-from app.serializers import playlists_schema, track_schema, playlist_schema, track_comment_schema, track_comments_schema
+from app.models import Playlist, Track, Favorite, UserRating, TrackComment
+from app.serializers import playlists_schema, track_schema, playlist_schema, track_comment_schema, \
+    track_comments_schema, tracks_schema
 from app.extensions import sp, sp_oauth  # Changed import source
 from datetime import datetime
+
+from flask_jwt_extended import get_jwt_identity
+
+
+
 
 import logging
 # Configure logging
@@ -25,11 +31,16 @@ def create_playlist(data):
         if not user_id or not name:
             return jsonify({"error": "Missing playlist name"}), 400
 
-        # ✅ Fetch Spotify User ID
+        # Force token refresh if needed
+        token_info = sp_oauth.get_cached_token()
+        if not token_info or sp_oauth.is_token_expired(token_info):
+            token_info = sp_oauth.refresh_access_token(token_info['refresh_token'])
+            sp.set_auth(token_info['access_token'])
+
         spotify_user = sp.current_user()
         spotify_user_id = spotify_user["id"]
 
-        # ✅ Create Playlist on Spotify
+        # Create Spotify playlist
         spotify_playlist = sp.user_playlist_create(
             user=spotify_user_id,
             name=name,
@@ -38,33 +49,24 @@ def create_playlist(data):
             description=description
         )
 
-        spotify_playlist_id = spotify_playlist["id"]
-        spotify_playlist_url = spotify_playlist["external_urls"]["spotify"]
-
-        # ✅ Store Playlist in Local Database
+        # Save to database
         new_playlist = Playlist(
             user_id=user_id,
             name=name,
             description=description,
-            spotify_id=spotify_playlist_id  # ✅ Store Spotify Playlist ID
+            spotify_id=spotify_playlist["id"]
         )
         db.session.add(new_playlist)
         db.session.commit()
 
         return jsonify({
             "message": "Playlist created successfully!",
-            "playlist": {
-                "id": new_playlist.id,
-                "name": new_playlist.name,
-                "description": new_playlist.description,
-                "user_id": new_playlist.user_id,
-                "spotify_playlist_id": spotify_playlist_id,
-                "spotify_url": spotify_playlist_url
-            }
+            "playlist": playlist_schema.dump(new_playlist)
         }), 201
 
     except Exception as e:
         db.session.rollback()
+        logger.error(f"Playlist creation failed: {str(e)}")
         return jsonify({"error": "Failed to create playlist", "details": str(e)}), 500
 
 @jwt_required()
@@ -218,7 +220,7 @@ def remove_track_from_playlist(data):
         }), 500
 
 
-@jwt_required()
+
 def get_tracks_from_playlist(playlist_id):
     """Retrieve all tracks from a playlist."""
     user_id = get_jwt_identity()
@@ -232,7 +234,10 @@ def get_tracks_from_playlist(playlist_id):
     if not tracks:
         return jsonify({"message": "No tracks found in this playlist"}), 200
 
-    return jsonify(track_schema.dump(tracks)), 200
+    # Use the correct schema for multiple tracks and wrap in a proper response structure
+    return jsonify({
+        "tracks": tracks_schema.dump(tracks)
+    }), 200
 
 
 # In services.py
@@ -441,6 +446,11 @@ def add_comment_to_track(user_id, playlist_name, track_name, comment):
         db.session.rollback()
         return {"error": "Failed to add comment", "details": str(e)}, 500
 
+
+
+
+
+
 def get_track_comments(user_id, playlist_name, track_name):
     """Retrieve comments for a specific track"""
     try:
@@ -532,3 +542,190 @@ def generate_time_capsule_playlist():
         return {"error": str(e)}, 500
 
 
+
+
+
+
+
+
+
+
+
+# ----Cultural Time Machine
+def generate_cultural_time_machine(year):
+    try:
+        user_id = get_jwt_identity()
+        if year < 1900 or year > datetime.now().year:
+            return {"error": "Invalid year"}, 400
+
+        # Get top tracks for the year
+        results = sp.search(
+            q=f"year:{year}",
+            type='track',
+            limit=50,
+            market='US'
+        )
+        tracks = results['tracks']['items']
+        if not tracks:
+            return {"error": "No tracks found for this year"}, 404
+
+        # Create playlist
+        playlist_name = f"{year} Time Machine"
+        existing = Playlist.query.filter_by(user_id=user_id, name=playlist_name).first()
+        spotify_user_id = sp.current_user()['id']
+
+        if existing:
+            sp.playlist_replace_items(existing.spotify_id, [])
+            sp.playlist_add_items(existing.spotify_id, [t['uri'] for t in tracks])
+            return {"message": "Playlist updated", "playlist_id": existing.spotify_id}, 200
+        else:
+            playlist = sp.user_playlist_create(
+                spotify_user_id,
+                name=playlist_name,
+                public=False,
+                description=f"Top tracks from {year}"
+            )
+            sp.playlist_add_items(playlist['id'], [t['uri'] for t in tracks])
+            new_playlist = Playlist(
+                user_id=user_id,
+                name=playlist_name,
+                spotify_id=playlist['id']
+            )
+            db.session.add(new_playlist)
+            db.session.commit()
+            return {"message": "Playlist created", "playlist_id": playlist['id']}, 201
+
+    except SpotifyException as e:
+        return {"error": f"Spotify API error: {str(e)}"}, e.http_status
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        return {"error": "Failed to generate playlist"}, 500
+
+
+# Add these functions to services.py
+def generate_text_based_playlist(data):
+    """Create playlist from text description"""
+    try:
+        user_id = get_jwt_identity()
+        description = data.get("description")
+
+        if not description:
+            return {"error": "Description is required"}, 400
+
+        # Search Spotify for relevant tracks
+        results = sp.search(q=description, type='track', limit=20)
+        if not results['tracks']['items']:
+            return {"error": "No tracks found matching description"}, 404
+
+        track_uris = [track['uri'] for track in results['tracks']['items']]
+
+        # Create Spotify playlist
+        spotify_user = sp.current_user()
+        playlist = sp.user_playlist_create(
+            user=spotify_user['id'],
+            name=f"Generated: {description[:50]}",
+            public=False,
+            description=f"Created from description: {description}"
+        )
+
+        # Add tracks to playlist
+        sp.playlist_add_items(playlist['id'], track_uris)
+
+        # Save to local database
+        new_playlist = Playlist(
+            user_id=user_id,
+            name=playlist['name'],
+            spotify_id=playlist['id']
+        )
+        db.session.add(new_playlist)
+        db.session.commit()
+
+        return {"message": "Playlist created", "playlist": playlist_schema.dump(new_playlist)}, 201
+
+    except SpotifyException as e:
+        return {"error": f"Spotify API error: {str(e)}"}, e.http_status
+    except Exception as e:
+        logger.error(f"Text playlist error: {str(e)}")
+        return {"error": "Failed to create playlist"}, 500
+
+
+def merge_playlists(data):
+    """Merge two playlists into one"""
+    try:
+        user_id = get_jwt_identity()
+        playlist1_id = data.get("playlist1_id")
+        playlist2_id = data.get("playlist2_id")
+
+        if not playlist1_id or not playlist2_id:
+            return {"error": "Both playlist IDs are required"}, 400
+
+        # Verify ownership and get Spotify IDs
+        playlist1 = Playlist.query.filter_by(user_id=user_id, id=playlist1_id).first()
+        playlist2 = Playlist.query.filter_by(user_id=user_id, id=playlist2_id).first()
+
+        if not playlist1 or not playlist2:
+            return {"error": "One or both playlists not found"}, 404
+
+        if not playlist1.spotify_id or not playlist2.spotify_id:
+            return {"error": "Both playlists must have Spotify IDs"}, 400
+
+        # Get all tracks from both playlists
+        def get_all_tracks(playlist_id):
+            tracks = []
+            results = sp.playlist_tracks(playlist_id)
+            tracks.extend(results['items'])
+            while results['next']:
+                results = sp.next(results)
+                tracks.extend(results['items'])
+            return list(set([item['track']['uri'] for item in tracks]))
+
+        tracks1 = get_all_tracks(playlist1.spotify_id)
+        tracks2 = get_all_tracks(playlist2.spotify_id)
+        combined = list(set(tracks1 + tracks2))
+
+        # Create new playlist
+        spotify_user = sp.current_user()
+        new_playlist = sp.user_playlist_create(
+            user=spotify_user['id'],
+            name=f"Merge: {playlist1.name} + {playlist2.name}",
+            public=False,
+            description=f"Combined playlist from {playlist1.name} and {playlist2.name}"
+        )
+
+        # Add tracks in batches
+        for i in range(0, len(combined), 100):
+            sp.playlist_add_items(new_playlist['id'], combined[i:i + 100])
+
+        # Save to database
+        merged_playlist = Playlist(
+            user_id=user_id,
+            name=new_playlist['name'],
+            spotify_id=new_playlist['id']
+        )
+        db.session.add(merged_playlist)
+        db.session.commit()
+
+        return {"message": "Playlists merged", "playlist": playlist_schema.dump(merged_playlist)}, 201
+
+    except SpotifyException as e:
+        return {"error": f"Spotify API error: {str(e)}"}, e.http_status
+    except Exception as e:
+        logger.error(f"Merge error: {str(e)}")
+        return {"error": "Failed to merge playlists"}, 500
+
+
+def get_user_comments():
+    """Retrieve all comments made by the authenticated user"""
+    try:
+        user_id = get_jwt_identity()
+        # Get comments ordered by creation date (newest first)
+        comments = TrackComment.query.filter_by(user_id=user_id) \
+            .order_by(TrackComment.created_at.desc()).all()
+
+        return jsonify({
+            "comments": track_comments_schema.dump(comments)
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Failed to fetch user comments: {str(e)}")
+        return jsonify({"error": "Failed to retrieve comments", "details": str(e)}), 500
