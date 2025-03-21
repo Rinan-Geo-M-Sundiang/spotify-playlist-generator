@@ -23,6 +23,10 @@ def create_playlist(data):
     """Create a playlist both locally and on Spotify."""
     try:
         user_id = get_jwt_identity()
+        if isinstance(user_id, dict):
+            user_id = user_id.get("id")
+        else:
+            user_id = user_id
         name = data.get("name")
         description = data.get("description", "")
         is_public = data.get("public", False)
@@ -73,6 +77,10 @@ def create_playlist(data):
 def get_playlists():
     """Retrieve all playlists for the authenticated user."""
     user_id = get_jwt_identity()
+    if isinstance(user_id, dict):
+        user_id = user_id.get("id")
+    else:
+        user_id = user_id
     playlists = Playlist.query.filter_by(user_id=user_id).all()
 
     if not playlists:
@@ -86,6 +94,10 @@ def add_track_to_playlist(playlist_id, data):
     """Add a track to a specific playlist (Both Local & Spotify)."""
     try:
         user_id = get_jwt_identity()
+        if isinstance(user_id, dict):
+            user_id = user_id.get("id")
+        else:
+            user_id = user_id
         playlist = Playlist.query.filter_by(id=playlist_id, user_id=user_id).first()
 
         if not playlist:
@@ -93,8 +105,7 @@ def add_track_to_playlist(playlist_id, data):
 
         if not playlist.spotify_id:
             return jsonify({"error": "This playlist does not have a linked Spotify ID"}), 400
-
-        # ✅ Validate incoming data
+        #  Validate incoming data
         track_name = data.get("name", "").strip()
         artist_name = data.get("artist", "").strip()
         album_name = data.get("album", "").strip() if data.get("album") else None
@@ -102,7 +113,7 @@ def add_track_to_playlist(playlist_id, data):
         if not track_name or not artist_name:
             return jsonify({"error": "Invalid track name or artist"}), 400
 
-        # ✅ Search Track on Spotify
+        #  Search Track on Spotify
         search_query = f"track:{track_name} artist:{artist_name}"
         search_result = sp.search(q=search_query, type="track", limit=1)
 
@@ -112,10 +123,10 @@ def add_track_to_playlist(playlist_id, data):
         spotify_track_uri = search_result["tracks"]["items"][0]["uri"]
         # Extract Spotify Track ID from URI (NEW)
         spotify_track_id = spotify_track_uri.split(":")[-1]  # Get last part of "spotify:track:abc123"
-        # ✅ Add Track to Spotify Playlist
+        #  Add Track to Spotify Playlist
         sp.playlist_add_items(playlist_id=playlist.spotify_id, items=[spotify_track_uri])
 
-        # ✅ Save to Local Database
+        #  Save to Local Database
         new_track = Track(
             name=track_name,
             artist=artist_name,
@@ -141,6 +152,10 @@ def add_track_to_playlist(playlist_id, data):
 def remove_track_from_playlist(data):
     """Remove track by playlist/track names"""
     user_id = get_jwt_identity()
+    if isinstance(user_id, dict):
+        user_id = user_id.get("id")
+    else:
+        user_id = user_id
     playlist_name = data.get("playlist_name")
     track_name = data.get("track_name")
 
@@ -224,6 +239,10 @@ def remove_track_from_playlist(data):
 def get_tracks_from_playlist(playlist_id):
     """Retrieve all tracks from a playlist."""
     user_id = get_jwt_identity()
+    if isinstance(user_id, dict):
+        user_id = user_id.get("id")
+    else:
+        user_id = user_id
     playlist = Playlist.query.filter_by(id=playlist_id, user_id=user_id).first()
 
     if not playlist:
@@ -244,6 +263,10 @@ def get_tracks_from_playlist(playlist_id):
 def handle_song_feedback(data):
     """Handle song ratings using playlist/track names"""
     user_id = get_jwt_identity()
+    if isinstance(user_id, dict):
+        user_id = user_id.get("id")
+    else:
+        user_id = user_id
     playlist_name = data.get("playlist_name")
     track_name = data.get("track_name")
     rating = data.get("rating")
@@ -308,6 +331,10 @@ def handle_song_feedback(data):
 def handle_favorite_operation(data):
     """Manage favorites using natural identifiers"""
     user_id = get_jwt_identity()
+    if isinstance(user_id, dict):
+        user_id = user_id.get("id")
+    else:
+        user_id = user_id
     item_type = data.get("type")
 
     if not item_type or item_type not in ["track", "album"]:
@@ -383,6 +410,10 @@ def handle_favorite_operation(data):
 def update_playlist_details(playlist_id, data):
     """Update playlist metadata"""
     user_id = get_jwt_identity()
+    if isinstance(user_id, dict):
+        user_id = user_id.get("id")
+    else:
+        user_id = user_id
     playlist = Playlist.query.filter_by(id=playlist_id, user_id=user_id).first()
 
     if not playlist:
@@ -555,6 +586,10 @@ def generate_time_capsule_playlist():
 def generate_cultural_time_machine(year):
     try:
         user_id = get_jwt_identity()
+        if isinstance(user_id, dict):
+            user_id = user_id.get("id")
+        else:
+            user_id = user_id
         if year < 1900 or year > datetime.now().year:
             return {"error": "Invalid year"}, 400
 
@@ -607,6 +642,10 @@ def generate_text_based_playlist(data):
     """Create playlist from text description"""
     try:
         user_id = get_jwt_identity()
+        if isinstance(user_id, dict):
+            user_id = user_id.get("id")
+        else:
+            user_id = user_id
         description = data.get("description")
 
         if not description:
@@ -653,6 +692,10 @@ def merge_playlists(data):
     """Merge two playlists into one"""
     try:
         user_id = get_jwt_identity()
+        if isinstance(user_id, dict):
+            user_id = user_id.get("id")
+        else:
+            user_id = user_id
         playlist1_id = data.get("playlist1_id")
         playlist2_id = data.get("playlist2_id")
 
@@ -718,6 +761,10 @@ def get_user_comments():
     """Retrieve all comments made by the authenticated user"""
     try:
         user_id = get_jwt_identity()
+        if isinstance(user_id, dict):
+            user_id = user_id.get("id")
+        else:
+            user_id = user_id
         # Get comments ordered by creation date (newest first)
         comments = TrackComment.query.filter_by(user_id=user_id) \
             .order_by(TrackComment.created_at.desc()).all()

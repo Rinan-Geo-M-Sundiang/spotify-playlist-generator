@@ -11,7 +11,6 @@ class User(db.Model):
     # ✅ One-to-Many Relationship (User → Playlists)
     playlists = db.relationship('Playlist', backref='user', lazy=True, cascade="all, delete-orphan")
 
-
 class Playlist(db.Model):
     __tablename__ = "playlist"
     __table_args__ = (
@@ -20,14 +19,14 @@ class Playlist(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(
         db.Integer,
-        db.ForeignKey('user.id', ondelete="CASCADE", name="fk_playlist_user"),  # ✅ Added constraint name
+        db.ForeignKey('user.id', ondelete="CASCADE", name="fk_playlist_user"),  #  Added constraint name
         nullable=False
     )
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    spotify_id = db.Column(db.String(100), nullable=True)  # ✅ Store Spotify Playlist ID
-    # ✅ One-to-Many Relationship (Playlist → Tracks)
+    spotify_id = db.Column(db.String(100), nullable=True)  #  Store Spotify Playlist ID
+    #  One-to-Many Relationship (Playlist → Tracks)
     tracks = db.relationship('Track', backref='playlist', lazy=True, cascade="all, delete-orphan")
 
 
@@ -42,7 +41,7 @@ class Track(db.Model):
     album = db.Column(db.String(200))
     playlist_id = db.Column(
         db.Integer,
-        db.ForeignKey('playlist.id', ondelete="CASCADE", name="fk_track_playlist"),  # ✅ Added constraint name
+        db.ForeignKey('playlist.id', ondelete="CASCADE", name="fk_track_playlist"),  # Added constraint name
         nullable=False
     )
     spotify_track_id = db.Column(db.String(200), nullable=False)  # Add this new field

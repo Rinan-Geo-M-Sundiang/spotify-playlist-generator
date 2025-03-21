@@ -9,11 +9,11 @@ from app.spotify_services import (
 # Create API Blueprint
 api_bp = Blueprint("api", __name__)
 
-# ✅ User Authentication Routes
+#  User Authentication Routes
 @api_bp.route("/register", methods=["POST"])
 def register():
     try:
-        return register_user()  # ✅ Correct function call
+        return register_user()  #  Correct function call
     except Exception as e:
         return jsonify({"error": "Failed to register user", "details": str(e)}), 500
 
@@ -21,16 +21,16 @@ def register():
 @api_bp.route("/login", methods=["POST"])
 def login():
     try:
-        return login_user()  # ✅ Correct function call
+        return login_user()  #  Correct function call
     except Exception as e:
         return jsonify({"error": "Login failed", "details": str(e)}), 500
 
 @api_bp.route("/playlist", methods=["POST"])
-@jwt_required()  # ✅ Requires JWT authentication
+@jwt_required()  #  Requires JWT authentication
 def create_playlist_route():
     try:
-        data = request.get_json()  # ✅ Get JSON data from request
-        return create_playlist(data)  # ✅ Now correctly passes `data`
+        data = request.get_json()  #  Get JSON data from request
+        return create_playlist(data)  #  Now correctly passes `data`
     except Exception as e:
         return jsonify({"error": "Failed to create playlist", "details": str(e)}), 500
 
@@ -50,7 +50,7 @@ def get_playlists_route():
 def add_track(playlist_id):
     try:
         data = request.get_json()
-        return add_track_to_playlist(playlist_id, data)  # ✅ Now it matches the function signature
+        return add_track_to_playlist(playlist_id, data)  #  Now it matches the function signature
     except Exception as e:
         return jsonify({"error": "Failed to add track", "details": str(e)}), 500
 
@@ -75,27 +75,27 @@ def get_tracks(playlist_id):
 
 
 
-# ✅ Search Track by Artist
+# Search Track by Artist
 @api_bp.route("/spotify/search/<artist_name>", methods=["GET"])
 def search_tracks(artist_name):
     return search_track_by_artist(artist_name)
 
-# ✅ Get Detailed Track Info
+#  Get Detailed Track Info
 @api_bp.route("/spotify/track/<track_id>", methods=["GET"])
 def track_info(track_id):
     return get_track_info(track_id)
 
-# ✅ Get Album Info
+#  Get Album Info
 @api_bp.route("/spotify/album/<album_id>", methods=["GET"])
 def album_info(album_id):
     return get_album_info(album_id)
 
-# ✅ Fetch Trending Tracks
+#  Fetch Trending Tracks
 @api_bp.route("/spotify/trending", methods=["GET"])
 def trending_tracks():
     return fetch_trending_tracks()
 
-# ✅ Spotify OAuth Login
+#  Spotify OAuth Login
 @api_bp.route("/spotify/login", methods=["GET"])
 def spotify_login():
     """
@@ -113,7 +113,7 @@ def spotify_login():
         return jsonify({"error": "Spotify login failed", "details": str(e)}), 500
 
 
-# ✅ Spotify OAuth Callback
+#  Spotify OAuth Callback
 @api_bp.route("/callback", methods=["GET"])
 def spotify_callback():
     """
@@ -125,7 +125,7 @@ def spotify_callback():
     try:
         auth_code = request.args.get("code")
         response, status_code = handle_spotify_callback(auth_code)
-        return jsonify(response), status_code  # ✅ Ensures JSON response
+        return jsonify(response), status_code  #  Ensures JSON response
     except Exception as e:
         return jsonify({"error": "Spotify authentication failed", "details": str(e)}), 500
 

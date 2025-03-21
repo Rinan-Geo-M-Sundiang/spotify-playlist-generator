@@ -11,7 +11,7 @@ class PlaylistSchema(Schema):
     name = fields.Str(required=True)
     description = fields.Str()
     created_at = fields.DateTime(dump_only=True)
-    spotify_id = fields.Str()  # ✅ Include Spotify ID
+    spotify_id = fields.Str()  #  Include Spotify ID
     tracks = fields.Nested("TrackSchema", many=True)
 
 
@@ -36,12 +36,12 @@ class TrackCommentSchema(Schema):
 track_comment_schema = TrackCommentSchema()
 track_comments_schema = TrackCommentSchema(many=True)
 
-# ✅ Initialize Serializers
+#  Initialize Serializers
 user_schema = UserSchema()
 playlist_schema = PlaylistSchema()
 track_schema = TrackSchema()
 
-# ✅ Serialize Multiple Objects
+#  Serialize Multiple Objects
 users_schema = UserSchema(many=True)
 playlists_schema = PlaylistSchema(many=True)
 tracks_schema = TrackSchema(many=True)

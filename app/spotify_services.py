@@ -4,21 +4,21 @@ import spotipy
 from flask import jsonify, request
 
 from app.extensions import sp, sp_oauth  # Changed import source
-# ✅ Load environment variables
+#  Load environment variables
 
 
 
 
-# ✅ Debugging: Verify OAuth Initialization
+#  Debugging: Verify OAuth Initialization
 if not sp_oauth:
-    print("❌ ERROR: Spotify OAuth is NOT initialized correctly.")
+    print(" ERROR: Spotify OAuth is NOT initialized correctly.")
 else:
-    print("✅ Spotify OAuth initialized successfully.")
+    print(" Spotify OAuth initialized successfully.")
 
 
 
 
-# ✅ Set Album ID for Trending Tracks
+#  Set Album ID for Trending Tracks
 PLAYLIST_ID = "2PvZKuj3e0FPqDHNUCZCSv"  # Replace with your desired album
 # print(sp.playlist(PLAYLIST_ID))  # Check if this returns valid data
 
@@ -70,20 +70,20 @@ def fetch_trending_tracks():
     try:
         print(f"🔍 Checking if playlist ID {PLAYLIST_ID} is valid...")
 
-        # ✅ Check if the playlist exists before fetching tracks
+        #  Check if the playlist exists before fetching tracks
         playlist_info = sp.playlist(PLAYLIST_ID)
         if not playlist_info:
-            print("❌ Playlist not found. Double-check the playlist ID.")
+            print(" Playlist not found. Double-check the playlist ID.")
             return jsonify({"error": "Playlist not found"}), 404
 
-        print(f"✅ Playlist '{playlist_info['name']}' found!")
+        print(f" Playlist '{playlist_info['name']}' found!")
 
-        # ✅ Fetch playlist tracks (Limit to 10, No `market` filter)
+        #  Fetch playlist tracks (Limit to 10, No `market` filter)
         playlist_tracks = sp.playlist_tracks(PLAYLIST_ID, limit=10)
 
-        print("📥 Spotify API Response (Playlist Tracks):", playlist_tracks)  # Debugging
+        print(" Spotify API Response (Playlist Tracks):", playlist_tracks)  # Debugging
 
-        # ✅ Extract track data
+        #  Extract track data
         tracks = [
             {
                 "name": track["track"]["name"],
@@ -93,15 +93,15 @@ def fetch_trending_tracks():
             for track in playlist_tracks["items"] if track["track"]
         ]
 
-        print("✅ Trending tracks fetched successfully!")  # Debugging
+        print(" Trending tracks fetched successfully!")  # Debugging
         return jsonify({"trending_tracks": tracks}), 200
 
     except spotipy.exceptions.SpotifyException as e:
-        print(f"❌ Spotify API Error: {str(e)}")  # Debugging
+        print(f" Spotify API Error: {str(e)}")  # Debugging
         return jsonify({"error": "Failed to fetch trending tracks from Spotify", "details": str(e)}), e.http_status
 
     except Exception as e:
-        print(f"❌ General Error fetching trending tracks: {str(e)}")  # Debugging
+        print(f" General Error fetching trending tracks: {str(e)}")  # Debugging
         return jsonify({"error": "Unexpected error occurred", "details": str(e)}), 500
 
 

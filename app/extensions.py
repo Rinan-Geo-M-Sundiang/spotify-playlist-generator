@@ -27,11 +27,11 @@ session = requests.Session()
 session.mount("https://", adapter)
 session.mount("http://", adapter)
 
-# ✅ Initialize Spotify OAuth (Ensures Token Refresh & Correct Scope)
+#  Initialize Spotify OAuth (Ensures Token Refresh & Correct Scope)
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIFY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
-    redirect_uri="http://localhost:5000/callback",  # ✅ Matches your redirect route
+    redirect_uri="http://localhost:5000/callback",  #  Matches your redirect route
     scope = "playlist-read-collaborative user-read-private playlist-modify-public playlist-modify-private user-library-read user-library-modify playlist-read-private user-top-read",
     cache_path=".spotifycache",  # Added cache path for token persistence
     requests_session=session # Use our custom session
